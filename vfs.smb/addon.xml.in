@@ -4,18 +4,16 @@
   version="1.0.0"
   name="SMB support"
   provider-name="spiff">
-  <requires>
-    <import addon="xbmc.vfs" version="1.0.0"/>
-  </requires>
+  <requires>@ADDON_DEPENDS@</requires>
   <extension
-    point="xbmc.vfs"
+    point="kodi.vfs"
     protocols="smb"
     files="true"
     directories="true"
-    library_linux="vfs.smb.so"/>
+    library_@PLATFORM@="@LIBRARY_FILENAME@" />
   <extension point="xbmc.addon.metadata">
     <summary lang="en">SMB support</summary>
     <description lang="en">SMB support</description>
-    <platform>all</platform>
+    <platform>@PLATFORM@</platform>
   </extension>
 </addon>
