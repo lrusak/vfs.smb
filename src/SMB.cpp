@@ -18,16 +18,15 @@
  *
  */
 
+#include <kodi/Network.h>
+
 #include "SMB.h"
-#include <xbmc/libXBMC_addon.h>
 #include <libsmbclient.h>
 #include <iostream>
 
-extern ADDON::CHelper_libXBMC_addon* XBMC;
-
 void xb_smbc_log(const char* msg)
 {
-  XBMC->Log(ADDON::LOG_INFO, "%s%s", "smb: ", msg);
+  kodi::Log(ADDON_LOG_INFO, "%s%s", "smb: ", msg);
 }
 
 void xb_smbc_auth(const char *srv, const char *shr, char *wg, int wglen,
@@ -63,7 +62,7 @@ CSMB2::~CSMB2()
 
 void CSMB2::Deinit()
 {
-  PLATFORM::CLockObject lock(*this);
+  P8PLATFORM::CLockObject lock(*this);
 
   /* samba goes loco if deinited while it has some files opened */
   if (m_context)
@@ -75,7 +74,7 @@ void CSMB2::Deinit()
     }
     catch(...)
     {
-      XBMC->Log(ADDON::LOG_ERROR,"exception on CSMB2::Deinit. errno: %d", errno);
+      kodi::Log(ADDON_LOG_ERROR,"exception on CSMB2::Deinit. errno: %d", errno);
     }
     m_context = NULL;
   }
@@ -83,7 +82,7 @@ void CSMB2::Deinit()
 
 void CSMB2::Init()
 {
-  PLATFORM::CLockObject lock(*this);
+  P8PLATFORM::CLockObject lock(*this);
   if (!m_context)
   {
     // Create ~/.smb/smb.conf. This file is used by libsmbclient.
@@ -108,7 +107,7 @@ void CSMB2::Init()
         fprintf(f, "\tclient lanman auth = yes\n");
         fprintf(f, "\tlanman auth = yes\n");
 
-        fprintf(f, "\tsocket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536\n");      
+        fprintf(f, "\tsocket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536\n");
         fprintf(f, "\tlock directory = %s/.smb/\n", getenv("HOME"));
 
         // set wins server if there's one. name resolve order defaults to 'lmhosts host wins bcast'.
@@ -192,7 +191,7 @@ void CSMB2::Purge()
  */
 void CSMB2::PurgeEx(const std::string& hostname, const std::string& filename)
 {
-  PLATFORM::CLockObject lock(*this);
+  P8PLATFORM::CLockObject lock(*this);
   std::string strShare = filename.substr(0, filename.find('/'));
 
   m_strLastShare = strShare;
@@ -220,9 +219,7 @@ static void Tokenize(const std::string& str, std::vector<std::string>& tokens,
   }
 }
 
-
-
-std::string CSMB2::URLEncode(const std::string& domain, 
+std::string CSMB2::URLEncode(const std::string& domain,
                             const std::string& hostname, const std::string& filename,
                             const std::string& username, const std::string& password)
 {
@@ -232,12 +229,8 @@ std::string CSMB2::URLEncode(const std::string& domain,
 
   if(!domain.empty())
   {
-    char* encoded = XBMC->URLEncode(domain.c_str());
-    if (encoded)
-    {
-      flat += encoded;
-      XBMC->FreeString(encoded);
-    }
+    std::string encoded = kodi::network::URLEncode(domain);
+    flat += encoded;
     flat += ";";
   }
 
@@ -245,27 +238,17 @@ std::string CSMB2::URLEncode(const std::string& domain,
   /* probably the url parser that goes crazy */
   if(!username.empty() /* || url.GetPassWord().length() > 0 */)
   {
-    char* encoded = XBMC->URLEncode(username.c_str());
-    if (encoded)
-    {
-      flat += encoded;
-      XBMC->FreeString(encoded);
-    }
+    std::string encoded = kodi::network::URLEncode(username);
+    flat += encoded;
     flat += ":";
-    encoded = XBMC->URLEncode(password.c_str());
-    if (encoded)
-    {
-      flat += encoded;
-      XBMC->FreeString(encoded);
-    }
+
+    encoded = kodi::network::URLEncode(password);
+    flat += encoded;
     flat += "@";
   }
-  char* encoded = XBMC->URLEncode(hostname.c_str());
-  if (encoded)
-  {
-    flat += encoded;
-    XBMC->FreeString(encoded);
-  }
+
+  std::string encoded = kodi::network::URLEncode(hostname);
+  flat += encoded;
 
   /* okey sadly since a slash is an invalid name we have to tokenize */
   std::vector<std::string> parts;
@@ -274,12 +257,8 @@ std::string CSMB2::URLEncode(const std::string& domain,
   for( it = parts.begin(); it != parts.end(); it++ )
   {
     flat += "/";
-    char* encoded = XBMC->URLEncode(it->c_str());
-    if (encoded)
-    {
-      flat += encoded;
-      XBMC->FreeString(encoded);
-    }
+    std::string encoded = kodi::network::URLEncode(it->c_str());
+    flat += encoded;
   }
 
   /* okey options should go here, thou current samba doesn't support any */
@@ -294,7 +273,7 @@ void CSMB2::CheckIfIdle()
    worst case scenario is that m_OpenConnections could read 0 and then changed to 1 if this happens it will enter the if wich will lead to another check, wich is locked.  */
   if (m_OpenConnections == 0)
   { /* I've set the the maxiumum IDLE time to be 1 min and 30 sec. */
-    PLATFORM::CLockObject lock(*this);
+    P8PLATFORM::CLockObject lock(*this);
     if (m_OpenConnections == 0 /* check again - when locked */ && m_context != NULL)
     {
       if (m_IdleTimeout > 0)
@@ -303,7 +282,7 @@ void CSMB2::CheckIfIdle()
       }
       else
       {
-        XBMC->Log(ADDON::LOG_INFO, "Samba is idle. Closing the remaining connections");
+        kodi::Log(ADDON_LOG_INFO, "Samba is idle. Closing the remaining connections");
         Deinit();
       }
     }
@@ -321,13 +300,13 @@ void CSMB2::SetActivityTime()
    This makes the idle timer not count if a movie is paused for example */
 void CSMB2::AddActiveConnection()
 {
-  PLATFORM::CLockObject lock(*this);
+  P8PLATFORM::CLockObject lock(*this);
   m_OpenConnections++;
 }
 
 void CSMB2::AddIdleConnection()
 {
-  PLATFORM::CLockObject lock(*this);
+  P8PLATFORM::CLockObject lock(*this);
   m_OpenConnections--;
   /* If we close a file we reset the idle timer so that we don't have any wierd behaviours if a user
      leaves the movie paused for a long while and then press stop */

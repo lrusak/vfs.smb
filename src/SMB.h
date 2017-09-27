@@ -19,7 +19,10 @@
  */
 #pragma once
 
-#include <xbmc/threads/mutex.h>
+#include <kodi/General.h>
+#include <kodi/Filesystem.h>
+
+#include <p8-platform/threads/mutex.h>
 #include <string>
 
 #define NT_STATUS_CONNECTION_REFUSED long(0xC0000000 | 0x0236)
@@ -31,7 +34,7 @@
 struct _SMBCCTX;
 typedef _SMBCCTX SMBCCTX;
 
-class CSMB2 : public PLATFORM::CMutex
+class CSMB2 : public P8PLATFORM::CMutex
 {
 public:
   static CSMB2& Get();
@@ -43,7 +46,7 @@ public:
   void SetActivityTime();
   void AddActiveConnection();
   void AddIdleConnection();
-  std::string URLEncode(const std::string& domain, 
+  std::string URLEncode(const std::string& domain,
                         const std::string& hostname, const std::string& filename,
                         const std::string& username, const std::string& password);
 
